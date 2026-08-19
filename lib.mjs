@@ -1,11 +1,17 @@
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { DatabaseSync } from 'node:sqlite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-export const BASE = 'https://uat.moyu.info';
-export const DB_PATH = resolve(__dirname, 'error_logs.db');
+
+const envPath = resolve(__dirname, '.env');
+if (existsSync(envPath)) {
+  process.loadEnvFile(envPath);
+}
+
+export const BASE = process.env.MOYU_BASE_URL || 'https://uat.moyu.info';
+export const DB_PATH = resolve(__dirname, process.env.MOYU_DB_PATH || 'error_logs.db');
 
 export function initDb() {
   const db = new DatabaseSync(DB_PATH);
@@ -146,11 +152,18 @@ export function statsDb(opts) {
 }
 
 export async function login() {
-  const { account } = JSON.parse(readFileSync(resolve(__dirname, 'account.json'), 'utf-8'));
+  let username = process.env.MOYU_USERNAME;
+  let password = process.env.MOYU_PASSWORD;
+  if (!username || !password) {
+    const accountPath = resolve(__dirname, 'account.json');
+    const { account } = JSON.parse(readFileSync(accountPath, 'utf-8'));
+    username = account.username;
+    password = account.password;
+  }
   const loginRes = await fetch(`${BASE}/api/user/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: account.username, password: account.password }),
+    body: JSON.stringify({ username, password }),
   });
   const loginJson = await loginRes.json();
   if (!loginJson.success || !loginJson.data) {

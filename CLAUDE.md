@@ -11,7 +11,9 @@
 ```
 .
 ├── CLAUDE.md                  # 本文件
-├── account.json               # 管理员凭证 { account: { username, password } }
+├── .env                       # 环境配置（不入库，含凭证和 API 地址）
+├── .env.example               # 环境配置模板（入库）
+├── account.json               # 管理员凭证（不入库，.env 的后备方案）
 ├── error_logs.db              # SQLite 数据库（自动创建，持久存储所有错误日志）
 ├── lib.mjs                    # 共享函数库（数据库、API、查询逻辑）
 ├── moyu-log.mjs               # 交互式菜单入口
@@ -23,10 +25,33 @@
 └── ~/.local/bin/moyu-log      # 系统命令入口（由 install.sh 自动生成）
 ```
 
+## 环境配置
+
+凭证和环境地址通过 `.env` 文件配置（优先），也兼容旧的 `account.json` 方式。
+
+```bash
+# 首次使用：从模板创建 .env
+cp .env.example .env
+# 编辑 .env 填写实际凭证和环境地址
+```
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `MOYU_BASE_URL` | 魔芋网关地址 | `https://uat.moyu.info` |
+| `MOYU_USERNAME` | 登录用户名 | 回退读取 `account.json` |
+| `MOYU_PASSWORD` | 登录密码 | 回退读取 `account.json` |
+| `MOYU_DB_PATH` | 数据库文件路径（相对于项目目录） | `error_logs.db` |
+
 ## 安装
 
 ```bash
 cd /home/fzc_ubuntu/error_logs
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 填入凭证（或继续使用 account.json）
+
+# 安装命令
 bash install.sh
 ```
 
