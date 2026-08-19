@@ -1,16 +1,17 @@
-# Catalog Service - 错误日志获取工具
+# 魔芋网关 - 错误日志获取工具
 
 ## 概述
 
-从魔芋 AI 网关 UAT 环境 (`https://uat.moyu.info/console/request-log`) 获取请求错误日志。
+从魔芋 AI 网关获取请求错误日志并持久化到本地 SQLite 数据库，支持交互式菜单和命令行两种使用方式。
 
-纯 Node.js 脚本，零依赖，要求 Node >= 22（使用内置 `node:sqlite`）。提供 `moyu-log` 命令，仅在项目目录下可用。
+纯 Node.js 脚本，零依赖，要求 Node >= 22（使用内置 `node:sqlite`）。提供 `moyu-log` 命令，进入项目目录时自动可用。
 
 ## 文件结构
 
 ```
 .
 ├── CLAUDE.md                  # 本文件
+├── .bashrc                    # 项目级 shell 函数（moyu-log 命令定义，cd 进入目录时自动加载）
 ├── .env                       # 环境配置（不入库，含凭证和 API 地址）
 ├── .env.example               # 环境配置模板（入库）
 ├── account.json               # 管理员凭证（不入库，.env 的后备方案）
@@ -18,11 +19,10 @@
 ├── lib.mjs                    # 共享函数库（数据库、API、查询逻辑）
 ├── moyu-log.mjs               # 交互式菜单入口
 ├── fetch_request_log.mjs      # 命令行脚本（脚本化/自动化调用）
-├── install.sh                 # 安装脚本（自动生成 moyu-log 命令并配置 PATH）
+├── install.sh                 # 安装脚本（在 ~/.bashrc 中注入目录钩子）
 ├── data/                      # --out 导出的 JSON 文件存放目录（自动创建）
-├── KEY/
-│   └── settings.json          # AI API 密钥配置（非本工具使用）
-└── ~/.local/bin/moyu-log      # 系统命令入口（由 install.sh 自动生成）
+└── KEY/
+    └── settings.json          # AI API 密钥配置（非本工具使用）
 ```
 
 ## 环境配置
@@ -37,7 +37,7 @@ cp .env.example .env
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `MOYU_BASE_URL` | 魔芋网关地址 | `https://uat.moyu.info` |
+| `MOYU_BASE_URL` | 魔芋网关地址（必填） | 无，未配置时报错 |
 | `MOYU_USERNAME` | 登录用户名 | 回退读取 `account.json` |
 | `MOYU_PASSWORD` | 登录密码 | 回退读取 `account.json` |
 | `MOYU_DB_PATH` | 数据库文件路径（相对于项目目录） | `error_logs.db` |
@@ -45,7 +45,7 @@ cp .env.example .env
 ## 安装
 
 ```bash
-cd /home/fzc_ubuntu/error_logs
+cd <项目目录>
 
 # 配置环境变量
 cp .env.example .env
@@ -53,15 +53,16 @@ cp .env.example .env
 
 # 安装命令
 bash install.sh
+# 然后 source ~/.bashrc 或重新打开终端
 ```
 
-脚本会自动将 `moyu-log` 命令安装到 `~/.local/bin/`，并在需要时将该目录添加到 PATH。
+`install.sh` 会在 `~/.bashrc` 中注入一个 `PROMPT_COMMAND` 钩子，以项目的绝对路径为判断依据。当 `cd` 进入项目目录（或其子目录）时自动加载 `moyu-log` shell 函数，离开时自动卸载。项目可放在任意路径，安装脚本会自动检测。
 
 ## 快速开始
 
 ```bash
-# 先进入项目目录
-cd /home/fzc_ubuntu/error_logs
+# 进入项目目录（moyu-log 命令自动可用）
+cd <项目目录>
 
 # 交互式菜单（推荐，无参数直接运行）
 moyu-log
@@ -72,7 +73,7 @@ moyu-log --stats --hours 720
 moyu-log --query --status 500
 ```
 
-`moyu-log` 命令仅在本目录下可用，在其他目录执行会提示先 `cd` 到项目目录。
+`moyu-log` 命令在项目目录及其子目录下自动可用，离开后自动卸载。
 
 ## 全部参数 (命令行模式)
 
@@ -162,7 +163,7 @@ moyu-log
 moyu-log --list --hours 1
 ```
 
-预期输出第一行为 `登录成功: Root User (id=1)`。如果提示"登录失败"，检查 `account.json` 中的凭证是否正确。
+预期输出包含 `登录成功` 及用户信息。如果提示"登录失败"，检查 `.env` 中的凭证或 `account.json` 是否正确，以及 `MOYU_BASE_URL` 指向的网关是否可达。
 
 ### 3. 获取近 7 天错误日志
 
@@ -182,7 +183,7 @@ moyu-log --hours 168 --status 500
 ### 5. 按模型筛选
 
 ```bash
-moyu-log --hours 168 --model deepseek-v4-flash
+moyu-log --hours 168 --model <模型名称>
 ```
 
 ### 6. 导出 JSON 文件
@@ -199,19 +200,19 @@ moyu-log --hours 720 --page 1 --page-size 50
 
 ## 工作原理
 
-1. 用 `account.json` 中的凭证调用 `POST /api/user/login` 登录，获取 session cookie 和用户 id
+1. 用 `.env`（或 `account.json`）中的凭证调用 `POST /api/user/login` 登录，获取 session cookie 和用户 id
 2. 携带 `Cookie: session=...` + `Moyu-Ai-User: {id}` 请求 `GET /api/failed-request-log/` 接口（自动翻页取回所有匹配记录）
 3. 解析 JSON 响应，输出统计摘要
-4. 将日志写入 SQLite 数据库 `error_logs.db`（按 id 去重）
+4. 将日志写入 SQLite 数据库（按 id 去重）
 5. 如指定 `--out`，额外导出一份 JSON 文件
 
 ## 故障排查
 
 | 现象 | 排查方式 |
 |------|----------|
-| `moyu-log: 命令未找到` | 运行 `bash install.sh` 安装；确认 `~/.local/bin` 在 PATH 中；`hash -r` 刷新命令缓存 |
-| `moyu-log 仅在项目目录下可用` | 先执行 `cd /home/fzc_ubuntu/error_logs` 再运行 |
-| `登录失败` | 检查 `account.json` 凭证，确认 UAT 环境 `https://uat.moyu.info` 可达 |
+| `moyu-log: 命令未找到` | 运行 `bash install.sh` 安装；然后 `source ~/.bashrc`；确认在项目目录下 |
+| 离开项目目录后命令消失 | 正常行为，`cd` 回项目目录即可恢复 |
+| `登录失败` | 检查 `.env` 凭证（`MOYU_USERNAME` / `MOYU_PASSWORD`），确认 `MOYU_BASE_URL` 可达 |
 | `接口返回失败: 未提供用户标识` | 登录 session 可能已过期，重新运行即可（每次运行都会重新登录） |
 | `0 条匹配` | 扩大 `--hours` 范围；该时间段内可能确实没有错误日志 |
 | `ExperimentalWarning: SQLite` | 正常提示，Node.js 内置 SQLite 标记为实验性，功能稳定 |

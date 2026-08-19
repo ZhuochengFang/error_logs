@@ -10,7 +10,11 @@ if (existsSync(envPath)) {
   process.loadEnvFile(envPath);
 }
 
-export const BASE = process.env.MOYU_BASE_URL || 'https://uat.moyu.info';
+if (!process.env.MOYU_BASE_URL) {
+  console.error('错误: 未配置 MOYU_BASE_URL，请在 .env 中设置魔芋网关地址');
+  process.exit(1);
+}
+export const BASE = process.env.MOYU_BASE_URL;
 export const DB_PATH = resolve(__dirname, process.env.MOYU_DB_PATH || 'error_logs.db');
 
 export function initDb() {
