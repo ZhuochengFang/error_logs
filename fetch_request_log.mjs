@@ -8,7 +8,7 @@
  * 交互式用法:
  *   node moyu-log.mjs
  */
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -34,7 +34,15 @@ function parseArgs() {
       case '--trace': opts.trace = args[++i]; break;
       case '--page': opts.page = Number(args[++i]); break;
       case '--page-size': opts.pageSize = Number(args[++i]); break;
-      case '--out': opts.out = args[++i]; break;
+      case '--out': {
+        const next = args[i + 1];
+        if (next && !next.startsWith('--')) {
+          opts.out = args[++i];
+        } else {
+          opts.out = `errors_${new Date().toISOString().slice(0, 10)}.json`;
+        }
+        break;
+      }
       case '--list': opts.listOnly = true; break;
       case '--query': opts.query = true; break;
       case '--stats': opts.stats = true; break;
@@ -50,7 +58,7 @@ function parseArgs() {
   --trace ID      按 trace ID 筛选
   --page N        起始页码 (默认 1)
   --page-size M   每页条数 (默认 100)
-  --out FILE      额外导出一份 JSON 文件
+  --out [FILE]    额外导出 JSON 文件 (缺省文件名: errors_YYYY-MM-DD.json)
   --list          仅打印统计，不写入数据库
 
 本地查询模式 (查询已入库的数据，不联网):
@@ -95,7 +103,9 @@ async function main() {
   }
 
   if (opts.out) {
-    const outFile = resolve(__dirname, opts.out);
+    const dataDir = resolve(__dirname, 'data');
+    mkdirSync(dataDir, { recursive: true });
+    const outFile = resolve(dataDir, opts.out);
     writeFileSync(
       outFile,
       JSON.stringify({
@@ -115,7 +125,7 @@ async function main() {
       }, null, 2),
       'utf-8'
     );
-    console.log(`已导出 ${logs.length} 条到 ${opts.out}`);
+    console.log(`已导出 ${logs.length} 条到 data/${opts.out}`);
   }
 }
 

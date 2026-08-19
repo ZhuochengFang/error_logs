@@ -17,6 +17,7 @@
 ├── moyu-log.mjs               # 交互式菜单入口
 ├── fetch_request_log.mjs      # 命令行脚本（脚本化/自动化调用）
 ├── install.sh                 # 安装脚本（自动生成 moyu-log 命令并配置 PATH）
+├── data/                      # --out 导出的 JSON 文件存放目录（自动创建）
 ├── KEY/
 │   └── settings.json          # AI API 密钥配置（非本工具使用）
 └── ~/.local/bin/moyu-log      # 系统命令入口（由 install.sh 自动生成）
@@ -61,7 +62,7 @@ moyu-log --query --status 500
 | `--trace ID` | 按 trace ID 筛选 | 不筛选 |
 | `--page N` | 页码 | 1 |
 | `--page-size M` | 每页条数 | 100 |
-| `--out FILE` | 额外导出一份 JSON 文件 | 不导出 |
+| `--out [FILE]` | 额外导出 JSON 文件（省略文件名则自动生成 `errors_YYYY-MM-DD.json`） | 不导出 |
 | `--list` | 仅打印统计摘要，不写入数据库 | 否 |
 | `--query` | 查询数据库中的日志记录（不联网） | 否 |
 | `--stats` | 显示数据库统计摘要（不联网） | 否 |

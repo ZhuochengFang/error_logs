@@ -7,7 +7,7 @@
  */
 import readline from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -76,8 +76,10 @@ async function actionExport() {
   try {
     const session = await login();
     const { logs, total, startTs, endTs } = await fetchLogs(session, filters);
+    const dataDir = resolve(__dirname, 'data');
+    mkdirSync(dataDir, { recursive: true });
     writeFileSync(
-      resolve(__dirname, out),
+      resolve(dataDir, out),
       JSON.stringify({
         total,
         fetched: logs.length,
@@ -95,7 +97,7 @@ async function actionExport() {
       }, null, 2),
       'utf-8'
     );
-    console.log(`已导出 ${logs.length} 条到 ${out}`);
+    console.log(`已导出 ${logs.length} 条到 data/${out}`);
   } catch (err) {
     console.error(`错误: ${err.message}`);
   }
