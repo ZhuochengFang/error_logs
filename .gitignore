@@ -1,2 +1,4 @@
 account.json
 .env
+error_logs.db
+data/

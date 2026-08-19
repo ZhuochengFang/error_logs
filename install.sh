@@ -7,11 +7,35 @@ CMD_PATH="${BIN_DIR}/moyu-log"
 
 mkdir -p "$BIN_DIR"
 
-cat > "$CMD_PATH" <<EOF
+cat > "$CMD_PATH" <<'SCRIPT'
 #!/usr/bin/env bash
-INSTALL_DIR="$INSTALL_DIR"
 
-if [ "\$1" = "-h" ] || [ "\$1" = "--help" ]; then
+# 从 .env 读取配置（取第一个匹配到的 .env 文件所在目录作为项目目录）
+find_project_dir() {
+  local dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/.env" ] && grep -q 'MOYU_' "$dir/.env" 2>/dev/null; then
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+load_env() {
+  local env_file="$1/.env"
+  if [ -f "$env_file" ]; then
+    while IFS='=' read -r key value; do
+      key=$(echo "$key" | xargs)
+      [[ -z "$key" || "$key" == \#* ]] && continue
+      value=$(echo "$value" | xargs)
+      export "$key=$value"
+    done < "$env_file"
+  fi
+}
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   cat <<'HELP'
 用法: moyu-log [选项]
 
@@ -26,7 +50,7 @@ if [ "\$1" = "-h" ] || [ "\$1" = "--help" ]; then
   --trace ID      按 trace ID 筛选
   --page N        起始页码 (默认 1)
   --page-size M   每页条数 (默认 100)
-  --out FILE      额外导出一份 JSON 文件
+  --out [FILE]    额外导出 JSON 文件 (缺省文件名: errors_YYYY-MM-DD.json)
   --list          仅打印统计，不写入数据库
 
 本地查询模式 (查询已入库的数据，不联网):
@@ -38,23 +62,33 @@ if [ "\$1" = "-h" ] || [ "\$1" = "--help" ]; then
   --channel ID    按渠道筛选
   --limit N       最多显示 N 条 (默认 20)
 
-数据存储在 \$INSTALL_DIR/error_logs.db
+工作目录名通过 .env 中的 MOYU_WORK_DIR_NAME 配置 (默认 error_logs)
 HELP
   exit 0
 fi
 
-if [ "\$PWD" != "\$INSTALL_DIR" ]; then
-  echo "moyu-log 仅在项目目录下可用，请先执行:" >&2
-  echo "  cd \$INSTALL_DIR" >&2
+PROJECT_DIR="$(find_project_dir)"
+if [ -z "$PROJECT_DIR" ]; then
+  echo "moyu-log: 未找到包含 .env 的项目目录，请在项目目录下运行" >&2
   exit 1
 fi
 
-if [ \$# -eq 0 ]; then
-  exec node "\$INSTALL_DIR/moyu-log.mjs"
-else
-  exec node "\$INSTALL_DIR/fetch_request_log.mjs" "\$@"
+load_env "$PROJECT_DIR"
+
+WORK_DIR_NAME="${MOYU_WORK_DIR_NAME:-error_logs}"
+CURRENT_DIR_NAME="$(basename "$PWD")"
+if [ -n "$WORK_DIR_NAME" ] && [ "$CURRENT_DIR_NAME" != "$WORK_DIR_NAME" ]; then
+  echo "moyu-log 仅在目录名为 '$WORK_DIR_NAME' 的目录下可用" >&2
+  echo "  当前目录: $PWD (目录名: $CURRENT_DIR_NAME)" >&2
+  exit 1
 fi
-EOF
+
+if [ $# -eq 0 ]; then
+  exec node "$PROJECT_DIR/moyu-log.mjs"
+else
+  exec node "$PROJECT_DIR/fetch_request_log.mjs" "$@"
+fi
+SCRIPT
 
 chmod +x "$CMD_PATH"
 
