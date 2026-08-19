@@ -16,10 +16,20 @@
 ├── lib.mjs                    # 共享函数库（数据库、API、查询逻辑）
 ├── moyu-log.mjs               # 交互式菜单入口
 ├── fetch_request_log.mjs      # 命令行脚本（脚本化/自动化调用）
+├── install.sh                 # 安装脚本（自动生成 moyu-log 命令并配置 PATH）
 ├── KEY/
 │   └── settings.json          # AI API 密钥配置（非本工具使用）
-└── ~/.local/bin/moyu-log      # 系统命令入口（限制仅在本目录下运行）
+└── ~/.local/bin/moyu-log      # 系统命令入口（由 install.sh 自动生成）
 ```
+
+## 安装
+
+```bash
+cd /home/fzc_ubuntu/error_logs
+bash install.sh
+```
+
+脚本会自动将 `moyu-log` 命令安装到 `~/.local/bin/`，并在需要时将该目录添加到 PATH。
 
 ## 快速开始
 
@@ -173,7 +183,7 @@ moyu-log --hours 720 --page 1 --page-size 50
 
 | 现象 | 排查方式 |
 |------|----------|
-| `moyu-log: 命令未找到` | 确认 `~/.local/bin` 在 PATH 中；`hash -r` 刷新命令缓存 |
+| `moyu-log: 命令未找到` | 运行 `bash install.sh` 安装；确认 `~/.local/bin` 在 PATH 中；`hash -r` 刷新命令缓存 |
 | `moyu-log 仅在项目目录下可用` | 先执行 `cd /home/fzc_ubuntu/error_logs` 再运行 |
 | `登录失败` | 检查 `account.json` 凭证，确认 UAT 环境 `https://uat.moyu.info` 可达 |
 | `接口返回失败: 未提供用户标识` | 登录 session 可能已过期，重新运行即可（每次运行都会重新登录） |
